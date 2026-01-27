@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Successful</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .success-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 60px 40px;
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .success-icon {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 30px;
+      background: #4caf50;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 60px;
+      color: white;
+      animation: scaleIn 0.5s ease-in-out;
+    }
+
+    @keyframes scaleIn {
+      0% {
+        transform: scale(0);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 32px;
+    }
+
+    .success-message {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+
+    .order-info {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 30px;
+      text-align: left;
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .info-item:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .info-value {
+      color: #667eea;
+      font-weight: 600;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 12px 30px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+      border: 2px solid #ddd;
+    }
+
+    .btn-secondary:hover {
+      background: #e8e8e8;
+      transform: translateY(-2px);
+    }
+
+    .loading-info {
+      color: #999;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+
+    .error-message {
+      background: #fde7e7;
+      color: #c33;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      border: 1px solid #f5cccc;
+    }
+
+    @media (max-width: 600px) {
+      .success-container {
+        padding: 40px 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .buttons {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="success-container">
+    <div class="success-icon">✓</div>
+    <h1>Payment Successful!</h1>
+    <p class="success-message">
+      Thank you for your purchase! Your payment has been processed successfully and your order is being prepared.
+    </p>
+
+    <div class="order-info" id="order-info" style="display: none;">
+      <div class="info-item">
+        <span class="info-label">Session ID:</span>
+        <span class="info-value" id="session-id"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Status:</span>
+        <span class="info-value" id="payment-status">Processing...</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Amount:</span>
+        <span class="info-value" id="amount"></span>
+      </div>
+    </div>
+
+    <div class="error-message" id="error-message" style="display: none;"></div>
+
+    <div class="buttons">
+      <button class="btn-primary" onclick="goHome()">Continue Shopping</button>
+      <button class="btn-secondary" onclick="viewOrders()">View My Orders</button>
+    </div>
+
+    <p class="loading-info" id="loading-info">
+      Verifying your payment details...
+    </p>
+  </div>
+
+  <script>
+    async function verifyPayment() {
+      try {
+        // Get session ID from URL
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('session_id');
+
+        if (!sessionId) {
+          throw new Error('No session ID found');
+        }
+
+        const token = localStorage.getItem('token');
+
+        // Retrieve checkout session details
+        const response = await fetch(`/api/v1/payments/checkout-session/${sessionId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to verify payment');
+        }
+
+        const data = await response.json();
+
+        // Display order info
+        document.getElementById('session-id').textContent = sessionId;
+        document.getElementById('payment-status').textContent =
+          data.payment_status === 'paid' ? 'Completed' : data.payment_status;
+        document.getElementById('amount').textContent = `$${data.amount.toFixed(2)} ${data.currency.toUpperCase()}`;
+        document.getElementById('order-info').style.display = 'block';
+        document.getElementById('loading-info').style.display = 'none';
+
+        // Clear cart
+        localStorage.removeItem('cart');
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('error-message').textContent = error.message;
+        document.getElementById('error-message').style.display = 'block';
+        document.getElementById('loading-info').style.display = 'none';
+      }
+    }
+
+    function goHome() {
+      window.location.href = '/home.html';
+    }
+
+    function viewOrders() {
+      window.location.href = '/orders.html';
+    }
+
+    // Verify payment on page load
+    document.addEventListener('DOMContentLoaded', verifyPayment);
+  </script>
+</body>
+</html>
