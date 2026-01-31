@@ -9,6 +9,8 @@ import { configurePassport } from './utils/passportConfig.js'
 import productRouters from './routers/productRouters.js'
 import userRouters from './routers/userRouters.js'
 import paymentRouters from './routers/paymentRouters.js'
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Load environment variables - only in development (Vercel provides env vars)
 if (process.env.NODE_ENV !== 'production') {
@@ -64,8 +66,14 @@ app.use(passport.session());
 // Configure Passport strategies
 configurePassport(passport);
 
+
+const__filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 // Static files
-app.use(express.static('public'));
+app.use(express.static (path.join(__dirname, 'public')));
 
 // Root route - serve index.html as home page
 app.get('/', (req, res) => {
