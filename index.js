@@ -10,9 +10,20 @@ import productRouters from './routers/productRouters.js'
 import userRouters from './routers/userRouters.js'
 import paymentRouters from './routers/paymentRouters.js'
 
-dotenv.config({path: './config.env'})
+// Load environment variables - only in development (Vercel provides env vars)
+if (process.env.NODE_ENV !== 'production') {
+    dotenv.config({path: './config.env'})
+}
 
 const app = express()
+
+// Determine frontend URL based on environment
+const getFrontendUrl = () => {
+    if (process.env.NODE_ENV === 'production') {
+        return process.env.FRONTEND_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '*')
+    }
+    return process.env.FRONTEND_URL || 'http://localhost:3000'
+}
 
 // CORS middleware - Allow frontend to communicate with backend
 app.use(cors({
@@ -21,7 +32,7 @@ app.use(cors({
         'http://localhost:4000',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:4000',
-        process.env.FRONTEND_URL || '*'
+        getFrontendUrl()
     ],
     credentials: true
 }));
@@ -41,7 +52,7 @@ app.use(session({
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
@@ -56,6 +67,11 @@ configurePassport(passport);
 // Static files
 app.use(express.static('public'));
 
+// Root route - serve index.html as home page
+app.get('/', (req, res) => {
+    res.sendFile(new URL('./public/index.html', import.meta.url).pathname);
+});
+
 // Routes
 app.use('/api/v1/products', productRouters)
 app.use('/api/v1/users', userRouters)
@@ -65,23 +81,29 @@ app.use('/api/v1/payments', paymentRouters)
 const MONGODB_URL = process.env.MONGODB_URL
 
 if (!MONGODB_URL) {
-    console.error('ERROR: MONGODB_URL not set in config.env');
+    console.error('ERROR: MONGODB_URL not set in environment');
     process.exit(1);
 }
 
-mongoose.connect(MONGODB_URL, {
-    serverSelectionTimeoutMS: 5000,
+// Connection options optimized for Vercel serverless
+const mongooseOptions = {
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
     retryWrites: true,
-    w: 'majority'
-})
+    w: 'majority',
+    maxPoolSize: 10,
+    minPoolSize: 2
+}
+
+mongoose.connect(MONGODB_URL, mongooseOptions)
 .then((conn) => {
     console.log(`✓ Database connected successfully: ${conn.connection.host}`); 
 })
 .catch((err) => {
     console.error(`✗ Database connection failed: ${err.message}`);
     console.error('Make sure:');
-    console.error('1. Your MongoDB URL is correct in config.env');
-    console.error('2. Your IP address is whitelisted in MongoDB Atlas');
+    console.error('1. Your MongoDB URL is correct in environment variables');
+    console.error('2. Your IP address is whitelisted in MongoDB Atlas (add 0.0.0.0/0 for Vercel)');
     console.error('3. Your database credentials are correct');
     process.exit(1);
 });
