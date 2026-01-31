@@ -9,7 +9,7 @@ function getCart() {
 // ===== FETCH PRODUCTS FROM API =====
 async function fetchProducts() {
   try {
-    const response = await fetch('http://localhost:4000/api/v1/products');
+    const response = await fetch('/api/v1/products');
     if (!response.ok) {
       throw new Error('Failed to fetch products');
     }
