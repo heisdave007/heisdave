@@ -9,8 +9,6 @@ import { configurePassport } from './utils/passportConfig.js'
 import productRouters from './routers/productRouters.js'
 import userRouters from './routers/userRouters.js'
 import paymentRouters from './routers/paymentRouters.js'
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 // Load environment variables - only in development (Vercel provides env vars)
 if (process.env.NODE_ENV !== 'production') {
@@ -66,14 +64,8 @@ app.use(passport.session());
 // Configure Passport strategies
 configurePassport(passport);
 
-
-const__filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-import path from 'path';
-import { fileURLToPath } from 'url';
-
 // Static files
-app.use(express.static (path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
 // Root route - serve index.html as home page
 app.get('/', (req, res) => {
@@ -90,7 +82,10 @@ const MONGODB_URL = process.env.MONGODB_URL
 
 if (!MONGODB_URL) {
     console.error('ERROR: MONGODB_URL not set in environment');
-    process.exit(1);
+    // For Vercel: Don't exit, just log error
+    if (process.env.NODE_ENV === 'production') {
+        console.error('⚠️ Continuing without database in production');
+    }
 }
 
 // Connection options optimized for Vercel serverless
@@ -103,27 +98,28 @@ const mongooseOptions = {
     minPoolSize: 2
 }
 
-mongoose.connect(MONGODB_URL, mongooseOptions)
-.then((conn) => {
-    console.log(`✓ Database connected successfully: ${conn.connection.host}`); 
-})
-.catch((err) => {
-    console.error(`✗ Database connection failed: ${err.message}`);
-    console.error('Make sure:');
-    console.error('1. Your MongoDB URL is correct in environment variables');
-    console.error('2. Your IP address is whitelisted in MongoDB Atlas (add 0.0.0.0/0 for Vercel)');
-    console.error('3. Your database credentials are correct');
-    process.exit(1);
-});
+if (MONGODB_URL) {
+    mongoose.connect(MONGODB_URL, mongooseOptions)
+    .then((conn) => {
+        console.log(`✓ Database connected successfully: ${conn.connection.host}`); 
+    })
+    .catch((err) => {
+        console.error(`✗ Database connection failed: ${err.message}`);
+        console.error('Make sure:');
+        console.error('1. Your MongoDB URL is correct in environment variables');
+        console.error('2. Your IP address is whitelisted in MongoDB Atlas (add 0.0.0.0/0 for Vercel)');
+        console.error('3. Your database credentials are correct');
+    });
 
-// Handle connection events
-mongoose.connection.on('disconnected', () => {
-    console.warn('⚠ MongoDB disconnected');
-});
+    // Handle connection events
+    mongoose.connection.on('disconnected', () => {
+        console.warn('⚠ MongoDB disconnected');
+    });
 
-mongoose.connection.on('error', (err) => {
-    console.error('⚠ MongoDB connection error:', err.message);
-});
+    mongoose.connection.on('error', (err) => {
+        console.error('⚠ MongoDB connection error:', err.message);
+    });
+}
 
 // Start server
 const PORT = process.env.PORT || 4000
@@ -131,7 +127,10 @@ const PORT = process.env.PORT || 4000
 const server = app.listen(PORT, (err) => {
     if (err) {
         console.error(`✗ Server error: ${err.message}`);
-        process.exit(1);
+        // For Vercel: Don't exit, just log error
+        if (process.env.NODE_ENV !== 'production') {
+            process.exit(1);
+        }
     } else {
         console.log(`✓ Server is running on port ${PORT}`);
     }
@@ -142,9 +141,13 @@ process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
         console.log('HTTP server closed');
-        mongoose.connection.close(false, () => {
-            console.log('MongoDB connection closed');
+        if (mongoose.connection.readyState === 1) {
+            mongoose.connection.close(false, () => {
+                console.log('MongoDB connection closed');
+                process.exit(0);
+            });
+        } else {
             process.exit(0);
-        });
+        }
     });
 });
