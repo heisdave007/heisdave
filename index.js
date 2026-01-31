@@ -5,10 +5,16 @@ import morgan from 'morgan'
 import cors from 'cors'
 import session from 'express-session'
 import passport from 'passport'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { configurePassport } from './utils/passportConfig.js'
 import productRouters from './routers/productRouters.js'
 import userRouters from './routers/userRouters.js'
 import paymentRouters from './routers/paymentRouters.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // Load environment variables - only in development (Vercel provides env vars)
 if (process.env.NODE_ENV !== 'production') {
@@ -64,12 +70,14 @@ app.use(passport.session());
 // Configure Passport strategies
 configurePassport(passport);
 
-// Static files
-app.use(express.static('public'));
+// Static files - serve all files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Root route - serve index.html as home page
+// Root route - serve index.html with explicit path resolution
 app.get('/', (req, res) => {
-    res.sendFile(new URL('./public/index.html', import.meta.url).pathname);
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).sendFile(indexPath);
 });
 
 // Routes
